@@ -1,0 +1,48 @@
+---
+- hosts: localhost
+  gather_facts: no
+  vars:
+    AWS_PREFIX: demo
+    rds_database: false
+    db_name: demodb2
+    db_username: tim2
+    db_password: supersecure1234
+  tasks:
+    - include_role:
+        name: aws
+      tags: provision
+    - include_role:
+        name: aws
+        tasks_from: destroy.yml
+      tags: destroy
+- hosts: service_DB
+  vars:
+    db_name: demodb2
+    db_username: tim2
+    db_password: supersecure1234
+  tasks:
+    - import_role:
+        name: database
+      tags: provision
+- hosts: service_APP
+  vars:
+    db_host: "{{ hostvars.localhost.database_address }}"
+    db_name: demodb2
+    db_username: tim2
+    db_password: supersecure1234
+    student_name: Jaguar
+    student_id: A00000000
+  tasks:
+    - import_role:
+        name: application
+      tags: provision
+- hosts: localhost
+  gather_facts: no
+  vars:
+    AWS_PREFIX: demo
+    rds_database: false
+  tasks:
+    - include_role:
+        name: aws
+        tasks_from: info.yml
+      tags: [ always, info ]
