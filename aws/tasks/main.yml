@@ -1,0 +1,35 @@
+---
+# tasks file for aws
+- name: Register rds_database Variable
+  debug:
+    var: rds_database
+  register: rds_database2
+  tags:
+    - provision  
+
+- name: Create AWS Infrastructure
+  import_tasks: vpc.yml
+  tags:
+    - provision
+
+- name: Create RDS Infrastructure
+  include_tasks: rds.yml
+  tags:
+    - provision
+  when: rds_database
+
+- name: Create EC2 Instance(s)
+  import_tasks: ec2.yml
+  tags:
+    - provision
+
+- name: Get Info
+  include_tasks: info.yml
+  tags:
+    - provision
+    - info
+
+- name: Destroy Infrastructure
+  import_tasks: destroy.yml
+  tags:
+    - destroy

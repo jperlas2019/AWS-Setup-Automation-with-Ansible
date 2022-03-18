@@ -1,0 +1,13 @@
+[Unit]
+Description=Example Python backend
+After=network.target
+
+[Service]
+WorkingDirectory=/backend
+Type=simple
+User=backend
+ExecStart=/backend/.local/bin/gunicorn wsgi:app -b 0.0.0.0:5000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

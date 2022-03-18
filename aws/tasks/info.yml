@@ -1,0 +1,76 @@
+---
+- name: Get EC2 APP Info
+  amazon.aws.ec2_instance_info:
+    filters:
+      instance-state-name: running
+      "tag:Role": APP
+  register: ec2_info
+  tags:
+    - provision
+    - info
+
+- name: Get EC2 DB Info
+  amazon.aws.ec2_instance_info:
+    filters:
+      instance-state-name: running
+      "tag:Role": DB
+  register: ec2_info_db
+  when: not rds_database
+  tags:
+    - provision
+    - info
+
+- name: Get RDS Info
+  community.aws.rds_instance_info:
+    db_instance_identifier: "{{ AWS_PREFIX|lower }}-db"
+  register: rds_info
+  when: rds_database
+  tags:
+    - provision
+    - info
+      
+
+- name: Define application_address Variable
+  set_fact:
+    application_address: "{{ ec2_info.instances[0].public_ip_address }}"
+  tags:
+    - provision
+    - info
+
+- name: Define database_address Variable
+  set_fact:
+    database_address: "{{ ec2_info_db.instances[0].private_ip_address }}"
+  tags:
+    - provision
+    - info
+  when: not rds_database
+
+- name: Define rds_endpoint Variable
+  set_fact:
+    rds_endpoint: "{{ rds_info.instances[0].endpoint.address }}"
+    database_address: "{{ rds_info.instances[0].endpoint.address }}"
+  tags:
+    - provision
+    - info
+  when: rds_database
+
+- name: Print EC2 APP Public IP Address
+  debug:
+    msg: "{{ application_address }}"
+  tags:
+    - info
+
+- name: Print EC2 DB Private IP Address
+  debug:
+    msg: "{{ database_address }}"
+  tags:
+    - info
+  when: not rds_database
+
+- name: Print RDS Endpoint
+  debug: 
+    msg: "{{ rds_endpoint }}"
+  tags:
+    - info
+  when: rds_database
+

@@ -1,0 +1,78 @@
+---
+# tasks file for database
+- name: Define rds_database Variable
+  set_fact:
+    rds_database: "{{ hostvars.localhost.rds_database2.rds_database }}"
+
+- name: Update and Upgrade Apt Packages
+  become: true
+  apt:
+    upgrade: yes
+    update_cache: yes
+  when: not rds_database
+
+- name: Making sure packages are settled...
+  pause:
+    seconds: 3
+  when: not rds_database
+
+- name: Installing Software
+  become: true
+  apt:
+    name:
+      - python3-pymysql
+      - mysql-server
+      - libmysqlclient-dev
+  when: not rds_database
+
+
+- name: MySQL Remove Anonymous User Account
+  become: true
+  mysql_user:
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: ''
+    host: localhost
+    state: absent
+  when: not rds_database
+
+- name: MySQL Create Database
+  become: true
+  mysql_db:
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: "{{ db_name }}"
+    state: present
+  when: not rds_database
+
+- name: MySQL Create User
+  become: true
+  mysql_user:
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    name: "{{ db_username }}"
+    password: "{{ db_password }}"
+    priv: "{{ db_name }}.*:ALL,GRANT"
+    state: present
+    host: '%'
+  when: not rds_database
+
+- name: Configure /etc/mysql/mysql.conf.d/mysqld.cnf
+  become: true
+  replace:
+    path: /etc/mysql/mysql.conf.d/mysqld.cnf
+    regexp: '\b127.0.0.1\b'
+    replace: '0.0.0.0'
+  when: not rds_database
+
+- name: Restart MySQL and Daemon
+  become: true
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: mysql
+  when: not rds_database
+
+- name: Enable MySQL
+  become: true
+  systemd:
+    name: mysql
+    enabled: yes
+  when: not rds_database

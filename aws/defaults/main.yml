@@ -1,0 +1,11 @@
+---
+# defaults file for aws
+AWS_PREFIX: ACIT4640
+rds_database: false
+db_name: backend
+db_username: example
+db_password: verysecure
+vpc_cidr: 10.100.0.0/16
+subnet_cidr: 10.100.1.0/24
+subnet_cidr_wk8: 10.100.2.0/24
+region: us-west-2

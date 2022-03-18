@@ -1,0 +1,177 @@
+---
+# tasks file for application
+- name: Update and Upgrade Apt Packages
+  become: true
+  apt:
+    upgrade: yes
+    update_cache: yes
+
+- name: Letting Packages Settle...
+  pause:
+    seconds: 3
+
+- name: Installing Software
+  become: true
+  apt: 
+    name:
+      - python3-pip
+      - nginx
+      - unzip
+      - acl
+      - python3-pymysql
+      - libmysqlclient-dev
+
+- name: Download Code
+  get_url:
+    url: https://github.com/timoguic/acit4640-py-mysql/archive/refs/heads/master.zip
+    dest: /tmp/source.zip
+
+- name: Create tmp Directory for Source Code
+  file:
+    path: /tmp/code
+    state: directory
+
+- name: Unzip Code Archive
+  unarchive:
+    src: /tmp/source.zip
+    dest: /tmp/code
+    remote_src: yes
+
+- name: Create Directory for Frontend Files
+  become: true
+  file:
+    path: /frontend
+    state: directory
+    owner: "{{ ansible_ssh_user }}"
+
+- name: Set Up Frontend Files
+  copy:
+    src: /tmp/code/acit4640-py-mysql-master/frontend/index.html
+    dest: /frontend/index.html
+    remote_src: yes
+
+- name: Copy nginx.conf to Instance
+  become: true
+  copy:
+    src: ./files/nginx-default
+    dest: /etc/nginx/sites-available/default
+
+- name: Copy Backend Files to /backend
+  become: true
+  copy:
+    src: /tmp/code/acit4640-py-mysql-master/backend
+    dest: /
+    remote_src: yes
+
+- name: Create User Backend
+  become: true
+  user:
+    name: backend
+    shell: /bin/bash
+    home: /backend
+
+- name: Change /backend Permissions to User Backend
+  become: true
+  file:
+    path: /backend
+    owner: backend
+    group: backend
+    mode: '0755'
+
+- name: Install Python Dependencies
+  become: true
+  become_user: backend
+  pip:
+    requirements: /backend/requirements.txt
+
+- name: Copy Configured backend.conf from Local to Remote
+  become: true
+  template:
+    src: ./templates/backend.conf.j2
+    dest: /backend/backend.conf
+
+
+- name: Copy example.service from Local to Remote
+  become: true
+  copy:
+    src: ./files/example.service
+    dest: /etc/systemd/system/example.service
+
+- name: RDS Remove Anonymous User Account
+  become: true
+  mysql_user:
+    login_host: "{{ db_host }}"
+    login_user: "{{ db_username }}"
+    login_password: "{{ db_password }}"
+    name: ''
+    host: localhost
+    state: absent
+  when: hostvars.localhost.rds_database2.rds_database
+
+- name: RDS Create Database
+  become: true
+  mysql_db:
+    login_host: "{{ db_host }}"
+    login_user: "{{ db_username }}"
+    login_password: "{{ db_password }}"
+    name: "{{ db_name }}"
+    state: present
+  when: hostvars.localhost.rds_database2.rds_database
+
+- name: MySQL/RDS Create Table
+  become: true
+  mysql_query:
+    login_host: "{{ db_host }}"
+    login_user: "{{ db_username }}"
+    login_password: "{{ db_password }}"
+    login_db: "{{ db_name }}"
+    query: CREATE TABLE IF NOT EXISTS item (name varchar(255), bcit_id varchar(255))
+
+- name: Query Database
+  mysql_query:
+    login_host: "{{ db_host }}"
+    login_user: "{{ db_username }}"
+    login_password: "{{ db_password }}"
+    login_db: "{{ db_name }}"
+    query: SELECT bcit_id from item WHERE name = %s
+    positional_args:
+      - "{{ student_name }}"
+  register: mysql_query_data
+
+- name: MySQL/RDS Insert Values Into Table Item
+  become: true
+  mysql_query:
+    login_host: "{{ db_host }}"
+    login_user: "{{ db_username }}"
+    login_password: "{{ db_password }}"
+    login_db: "{{ db_name }}"
+    query: INSERT INTO item (name, bcit_id) VALUES (%s, %s)
+    positional_args:
+      - "{{ student_name }}"
+      - "{{ student_id }}"
+  when: mysql_query_data.rowcount[0] == 0
+
+- name: Restart Nginx and Reload Daemon
+  become: true
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: nginx
+
+- name: Restart example.service
+  become: true
+  systemd:
+    state: restarted
+    name: example.service
+
+- name: Enable Nginx
+  become: true
+  systemd:
+    name: nginx
+    enabled: yes
+
+- name: Enable example.service
+  become: true
+  systemd:
+    name: example.service
+    enabled: yes

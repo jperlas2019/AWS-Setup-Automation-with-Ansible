@@ -1,0 +1,28 @@
+---
+- name: Get All EC2 Instances
+  amazon.aws.ec2_instance_info:
+    filters:
+      instance-state-name: running
+  register: ec2_instances
+  tags:
+    - destroy
+
+- name: Terminate EC2 Instances
+  amazon.aws.ec2_instance:
+    instance_ids: "{{ ec2_instances.instances | map(attribute='instance_id') }}"
+    state: terminated
+  when: ec2_instances.instances | length > 0
+  tags:
+    - destroy
+
+- name: Terminate RDS Instance
+  community.aws.rds_instance:
+    db_instance_identifier: "{{ AWS_PREFIX|lower }}-db"
+    skip_final_snapshot: yes
+    state: terminated
+  tags:
+    - destroy
+
+- meta: refresh_inventory
+  tags:
+    - destroy
