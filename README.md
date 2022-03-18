@@ -1,6 +1,6 @@
 # AWS Setup Automation with Ansible
 
-This project is about using Ansible to automate AWS instantiation.
+The objective of this project is to get a full Infrastructure as Code setup that allows to create and manage AWS components, and setup a python application using only Ansible playbooks
 This project sets up the following:
 
 AWS VPC </br>
